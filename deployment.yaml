@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+  selector:
+    # defines how the Deployment finds which Pods to manage
+    matchLabels:
+      app: demo
+  template:
+    metadata:
+      labels:
+        app: demo
+    spec:
+      containers:
+        # container image is referenced from GCR (Google Container Registry)
+        - image: eu.gcr.io/k8s-ws-9/demo-app_kaur-kaelep:1
+          resources:
+            # how much resources container is guaranteed to get
+            requests:
+              # defined in millicores
+              cpu: 100m
+              memory: 600Mi
+            # upper limit that container can acquire even if node has plenty of resources
+            limits:
+              cpu: 1000m
+              memory: 1000Mi
+          name: demo
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: STAGING
+            - name: JAVA_OPTS
+              value: -Xmx256m -Xms256m
+          ports:
+            - containerPort: 8080
+          # used to check if application is healthy
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 100
+          # used to check if it is ready (i.e. could route traffic)
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+          volumeMounts:
+            - mountPath: /conf
+              name: conf
+      volumes:
+        - name: conf
+          configMap:
+            name: demo
+            items:
+              - key: some.conf
+                path: some.conf
